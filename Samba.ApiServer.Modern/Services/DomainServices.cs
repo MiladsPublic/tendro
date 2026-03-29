@@ -124,9 +124,21 @@ public class TicketDomainService : ITicketDomainService
     {
         _logger.LogInformation("Creating ticket for department {DepartmentId}", request.DepartmentId);
         
-        // Phase 2: Will integrate with Samba.Domain.ITicketService
-        // For now, return placeholder
-        throw new NotImplementedException("Phase 2: Ticket domain integration pending");
+        var ticketNumber = "T-" + DateTime.UtcNow.ToString("yyyy-MM-dd-HHmmss-fff");
+        var ticket = new TicketAggregate
+        {
+            TicketNumber = ticketNumber,
+            CreatedAt = DateTime.UtcNow,
+            TotalAmount = 0m,
+            RemainingAmount = 0m,
+            IsClosed = false,
+            Orders = new List<OrderAggregate>(),
+            Payments = new List<PaymentAggregate>()
+        };
+        
+        await _ticketRepo.CreateAsync(ticket, ct);
+        _logger.LogInformation("Created ticket {TicketNumber}", ticketNumber);
+        return ticket.ToDto();
     }
 
     public async Task<TicketDto?> GetTicketAsync(int ticketId, CancellationToken ct = default)
@@ -151,17 +163,70 @@ public class TicketDomainService : ITicketDomainService
 
     public async Task<TicketDto> AddOrderAsync(int ticketId, AddOrderRequest request, CancellationToken ct = default)
     {
-        throw new NotImplementedException("Phase 2: AddOrder pending");
+        _logger.LogInformation("Adding order to ticket {TicketId}", ticketId);
+        
+        var ticket = await _ticketRepo.GetByIdAsync(ticketId, ct);
+        if (ticket == null)
+        {
+            _logger.LogWarning("Ticket {TicketId} not found", ticketId);
+            throw new KeyNotFoundException($"Ticket {ticketId} not found");
+        }
+
+        var order = new OrderAggregate
+        {
+            MenuItemId = request.MenuItemId,
+            MenuItemName = "MenuItem", // Placeholder - would fetch from menu service in Phase 3
+            Quantity = request.Quantity,
+            UnitPrice = 1m, // Placeholder - would fetch from menu service in Phase 3
+            Status = "Pending"
+        };
+
+        var orders = ((IList<OrderAggregate>)ticket.Orders).ToList();
+        orders.Add(order);
+        order.Id = orders.Count; // Simple ID assignment
+
+        ticket.Orders = orders;
+        ticket.TotalAmount = orders.Sum(o => o.LineTotal);
+        ticket.RemainingAmount = ticket.TotalAmount;
+
+        await _ticketRepo.UpdateAsync(ticket, ct);
+        _logger.LogInformation("Added order {OrderId} to ticket {TicketId}", order.Id, ticketId);
+        return ticket.ToDto();
     }
 
     public async Task<TicketDto> UpdateTicketStateAsync(int ticketId, UpdateTicketStateRequest request, CancellationToken ct = default)
     {
-        throw new NotImplementedException("Phase 2: UpdateTicketState pending");
+        _logger.LogInformation("Updating ticket {TicketId} state to {StateName}={StateValue}", ticketId, request.StateName, request.StateValue);
+        
+        var ticket = await _ticketRepo.GetByIdAsync(ticketId, ct);
+        if (ticket == null)
+        {
+            _logger.LogWarning("Ticket {TicketId} not found", ticketId);
+            throw new KeyNotFoundException($"Ticket {ticketId} not found");
+        }
+
+        // State update would be stored in Phase 3 database
+        // For Phase 2, just log it
+        await _ticketRepo.UpdateAsync(ticket, ct);
+        _logger.LogInformation("Updated ticket {TicketId} state", ticketId);
+        return ticket.ToDto();
     }
 
     public async Task<TicketDto> CloseTicketAsync(int ticketId, CancellationToken ct = default)
     {
-        throw new NotImplementedException("Phase 2: CloseTicket pending");
+        _logger.LogInformation("Closing ticket {TicketId}", ticketId);
+        
+        var ticket = await _ticketRepo.GetByIdAsync(ticketId, ct);
+        if (ticket == null)
+        {
+            _logger.LogWarning("Ticket {TicketId} not found", ticketId);
+            throw new KeyNotFoundException($"Ticket {ticketId} not found");
+        }
+
+        ticket.IsClosed = true;
+        await _ticketRepo.UpdateAsync(ticket, ct);
+        _logger.LogInformation("Closed ticket {TicketId}", ticketId);
+        return ticket.ToDto();
     }
 }
 
@@ -179,17 +244,43 @@ public class OrderDomainService : IOrderDomainService
 
     public async Task<OrderDto?> GetOrderAsync(int orderId, CancellationToken ct = default)
     {
-        throw new NotImplementedException("Phase 2: GetOrder pending");
+        _logger.LogDebug("Retrieving order {OrderId}", orderId);
+        var order = await _orderRepo.GetByIdAsync(orderId, ct);
+        return order?.ToDto();
     }
 
     public async Task<OrderDto> UpdateOrderStateAsync(int orderId, UpdateOrderStateRequest request, CancellationToken ct = default)
     {
-        throw new NotImplementedException("Phase 2: UpdateOrderState pending");
+        _logger.LogInformation("Updating order {OrderId} state to {StateName}={StateValue}", orderId, request.StateName, request.StateValue);
+        
+        var order = await _orderRepo.GetByIdAsync(orderId, ct);
+        if (order == null)
+        {
+            _logger.LogWarning("Order {OrderId} not found", orderId);
+            throw new KeyNotFoundException($"Order {orderId} not found");
+        }
+
+        order.Status = request.StateValue;
+        await _orderRepo.UpdateAsync(order, ct);
+        _logger.LogInformation("Updated order {OrderId} state", orderId);
+        return order.ToDto();
     }
 
     public async Task<OrderDto> VoidOrderAsync(int orderId, CancellationToken ct = default)
     {
-        throw new NotImplementedException("Phase 2: VoidOrder pending");
+        _logger.LogInformation("Voiding order {OrderId}", orderId);
+        
+        var order = await _orderRepo.GetByIdAsync(orderId, ct);
+        if (order == null)
+        {
+            _logger.LogWarning("Order {OrderId} not found", orderId);
+            throw new KeyNotFoundException($"Order {orderId} not found");
+        }
+
+        order.Status = "Voided";
+        await _orderRepo.UpdateAsync(order, ct);
+        _logger.LogInformation("Voided order {OrderId}", orderId);
+        return order.ToDto();
     }
 }
 
@@ -226,22 +317,62 @@ public class PaymentDomainService : IPaymentDomainService
             }
         }
 
-        throw new NotImplementedException("Phase 2: ProcessPayment pending");
+        // Create new payment
+        var payment = new PaymentAggregate
+        {
+            Amount = request.Amount,
+            ProcessedAt = DateTime.UtcNow,
+            PaymentType = "Cash" // Placeholder - would look up actual type in Phase 3
+        };
+
+        await _paymentRepo.CreateAsync(payment, ct);
+
+        // Cache result if idempotency key provided
+        if (!string.IsNullOrEmpty(request.IdempotencyKey))
+        {
+            await _idempotencyService.StoreResultAsync(request.IdempotencyKey, payment.ToDto(), TimeSpan.FromHours(24), ct);
+        }
+
+        _logger.LogInformation("Created payment {PaymentId} for ticket {TicketId}", payment.Id, ticketId);
+        return payment.ToDto();
     }
 
     public async Task<PaymentDto?> GetPaymentAsync(int paymentId, CancellationToken ct = default)
     {
-        throw new NotImplementedException("Phase 2: GetPayment pending");
+        _logger.LogDebug("Retrieving payment {PaymentId}", paymentId);
+        var payment = await _paymentRepo.GetByIdAsync(paymentId, ct);
+        return payment?.ToDto();
     }
 
     public async Task<PaymentDto> RefundPaymentAsync(int paymentId, RefundPaymentRequest request, CancellationToken ct = default)
     {
-        throw new NotImplementedException("Phase 2: RefundPayment pending");
+        _logger.LogInformation("Refunding payment {PaymentId} - Reason: {Reason}", paymentId, request.Reason);
+        
+        var payment = await _paymentRepo.GetByIdAsync(paymentId, ct);
+        if (payment == null)
+        {
+            _logger.LogWarning("Payment {PaymentId} not found", paymentId);
+            throw new KeyNotFoundException($"Payment {paymentId} not found");
+        }
+
+        // Create refund payment record
+        var refund = new PaymentAggregate
+        {
+            Amount = -payment.Amount, // Negative to indicate refund
+            ProcessedAt = DateTime.UtcNow,
+            PaymentType = "Refund"
+        };
+        
+        await _paymentRepo.CreateAsync(refund, ct);
+        _logger.LogInformation("Refunded payment {PaymentId}", paymentId);
+        return refund.ToDto();
     }
 
     public async Task<IReadOnlyList<PaymentDto>> ListTicketPaymentsAsync(int ticketId, CancellationToken ct = default)
     {
-        throw new NotImplementedException("Phase 2: ListTicketPayments pending");
+        _logger.LogDebug("Listing payments for ticket {TicketId}", ticketId);
+        var payments = await _paymentRepo.ListByTicketAsync(ticketId, ct);
+        return payments.Select(p => p.ToDto()).ToList();
     }
 }
 
