@@ -1,0 +1,97 @@
+namespace Samba.ApiServer.Modern.Contracts;
+
+/// <summary>
+/// Phase 1: Standard API response contracts for domain operations
+/// </summary>
+
+/// <summary>Health status response with component details</summary>
+public sealed record HealthResponse(
+    string Status,
+    DateTimeOffset UtcNow,
+    IReadOnlyDictionary<string, ComponentHealth> Components,
+    TimeSpan Uptime);
+
+public sealed record ComponentHealth(
+    string Status,
+    string? Message = null);
+
+/// <summary>System information and version metadata</summary>
+public sealed record SystemInfoResponse(
+    string Service,
+    string Version,
+    string Environment,
+    string Framework,
+    DateTime BuildDate,
+    string MachineName,
+    DateTimeOffset UtcNow);
+
+/// <summary>Metrics for monitoring and observability</summary>
+public sealed record SystemMetricsResponse(
+    long RequestsTotal,
+    decimal RequestsPerSecond,
+    decimal AverageLatencyMs,
+    decimal ErrorRate,
+    bool UpstreamDependenciesHealthy,
+    DateTimeOffset Timestamp);
+
+/// <summary>Standardized error response (RFC 7807 Problem Details)</summary>
+public sealed record ErrorResponse(
+    string Error,
+    string Message,
+    string? TraceId = null,
+    IReadOnlyDictionary<string, object>? Details = null);
+
+/// <summary>Login request contract</summary>
+public sealed record LoginRequest(
+    string Username,
+    string Password);
+
+/// <summary>Login response with bearer token</summary>
+public sealed record LoginResponse(
+    string Token,
+    int ExpiresIn,
+    string TokenType,
+    UserInfo User);
+
+/// <summary>Authenticated user context</summary>
+public sealed record UserInfo(
+    string Username,
+    int UserId);
+
+// Domain Model Request/Response Templates (for Phase 2)
+
+/// <summary>Template for ticket read operations</summary>
+public sealed record TicketDto(
+    int Id,
+    string TicketNumber,
+    DateTime IssuedAt,
+    decimal TotalAmount,
+    decimal RemainingAmount,
+    bool IsClosed,
+    IReadOnlyList<OrderDto> Orders,
+    IReadOnlyList<PaymentDto> Payments);
+
+/// <summary>Template for order line items</summary>
+public sealed record OrderDto(
+    int Id,
+    int MenuItemId,
+    string MenuItemName,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal LineTotal,
+    string Status);
+
+/// <summary>Template for payment records</summary>
+public sealed record PaymentDto(
+    int Id,
+    decimal Amount,
+    DateTime ProcessedAt,
+    string PaymentType);
+
+/// <summary>Standard pagination response wrapper</summary>
+public sealed record PagedResponse<T>(
+    IReadOnlyList<T> Items,
+    int PageNumber,
+    int PageSize,
+    long TotalCount,
+    int TotalPages) where T : class;
