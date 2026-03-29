@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Samba.ApiServer.Modern.Middleware;
 using Samba.ApiServer.Modern.Services;
 using Samba.ApiServer.Modern.Contracts;
+using Samba.ApiServer.Modern.Endpoints;
+using Samba.ApiServer.Modern.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,6 +55,17 @@ builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IRequestCorrelationService, RequestCorrelationService>();
 builder.Services.AddScoped<IAuthenticationService, BasicAuthenticationService>();
 builder.Services.AddScoped<IHealthCheckService, AspNetCoreHealthCheckService>();
+
+// Phase 2: Domain Services (pending database integration)
+builder.Services.AddScoped<ITicketDomainService, TicketDomainService>();
+builder.Services.AddScoped<IOrderDomainService, OrderDomainService>();
+builder.Services.AddScoped<IPaymentDomainService, PaymentDomainService>();
+
+// Phase 2: Repository placeholders (will integrate with EF Core in Phase 2)
+builder.Services.AddScoped<ITicketRepository, InMemoryTicketRepository>();
+builder.Services.AddScoped<IOrderRepository, InMemoryOrderRepository>();
+builder.Services.AddScoped<IPaymentRepository, InMemoryPaymentRepository>();
+builder.Services.AddScoped<IIdempotencyService, InMemoryIdempotencyService>();
 
 // 5. CORS for web clients (Phase 1)
 builder.Services.AddCors(options =>
@@ -146,6 +159,14 @@ authGroup.MapPost("/logout", HandleLogout)
 systemGroup.MapGet("/metrics", HandleMetrics)
     .WithName("GetMetrics")
     .WithSummary("Get system metrics (requests, latency, etc)");
+
+// ============================================================
+// Phase 2: Domain Endpoints (Tickets, Orders, Payments)
+// ============================================================
+
+app.MapTicketEndpoints();
+app.MapPaymentEndpoints();
+app.MapOrderEndpoints();
 
 // Fallback 404 handler
 app.MapFallback((HttpContext ctx) =>
