@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using Microsoft.EntityFrameworkCore;
 using Samba.ApiServer.Modern.Contracts;
+using Samba.ApiServer.Modern.Data;
 
 namespace Samba.ApiServer.Modern.Services;
 
@@ -7,16 +9,20 @@ public interface ITerminalAgentService
 {
     TerminalHeartbeatDto UpsertHeartbeat(TerminalHeartbeatRequest request);
     IReadOnlyList<TerminalHeartbeatDto> ListHeartbeats();
-    TerminalQueueEventDto EnqueueEvent(TerminalQueueEventRequest request);
-    IReadOnlyList<TerminalQueueEventDto> ListQueuedEvents(string terminalId);
-    TerminalQueueReplayResultDto ReplayQueuedEvents(string terminalId, int take = 50);
+    Task<TerminalQueueEventDto> EnqueueEventAsync(TerminalQueueEventRequest request, CancellationToken ct = default);
+    Task<IReadOnlyList<TerminalQueueEventDto>> ListQueuedEventsAsync(string terminalId, CancellationToken ct = default);
+    Task<TerminalQueueReplayResultDto> ReplayQueuedEventsAsync(string terminalId, int take = 50, CancellationToken ct = default);
 }
 
 public class TerminalAgentService : ITerminalAgentService
 {
+    private readonly SambaDbContext _dbContext;
     private static readonly ConcurrentDictionary<string, TerminalHeartbeatDto> Heartbeats = new();
-    private static readonly ConcurrentDictionary<string, ConcurrentQueue<TerminalQueueEventDto>> Queues = new();
-    private static long _nextEventId;
+
+    public TerminalAgentService(SambaDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
 
     public TerminalHeartbeatDto UpsertHeartbeat(TerminalHeartbeatRequest request)
     {
@@ -39,36 +45,90 @@ public class TerminalAgentService : ITerminalAgentService
             .ToList();
     }
 
-    public TerminalQueueEventDto EnqueueEvent(TerminalQueueEventRequest request)
+    public async Task<TerminalQueueEventDto> EnqueueEventAsync(TerminalQueueEventRequest request, CancellationToken ct = default)
     {
-        var queue = Queues.GetOrAdd(request.TerminalId, _ => new ConcurrentQueue<TerminalQueueEventDto>());
+        if (!string.IsNullOrWhiteSpace(request.CorrelationId))
+        {
+            var existing = await _dbContext.TerminalQueueEvents
+                .AsNoTracking()
+                .OrderByDescending(e => e.CreatedAtUtc)
+                .FirstOrDefaultAsync(
+                    e => e.TerminalId == request.TerminalId &&
+                         e.CorrelationId == request.CorrelationId,
+                    ct);
 
-        var evt = new TerminalQueueEventDto(
-            EventId: Interlocked.Increment(ref _nextEventId),
-            TerminalId: request.TerminalId,
-            EventType: request.EventType,
-            PayloadJson: request.PayloadJson,
-            Status: "Queued",
-            CreatedAtUtc: DateTime.UtcNow,
-            CorrelationId: request.CorrelationId);
+            if (existing != null)
+            {
+                return new TerminalQueueEventDto(
+                    EventId: existing.Id,
+                    TerminalId: existing.TerminalId,
+                    EventType: existing.EventType,
+                    PayloadJson: existing.PayloadJson,
+                    Status: "Conflict",
+                    CreatedAtUtc: existing.CreatedAtUtc,
+                    ReplayedAtUtc: existing.ReplayedAtUtc,
+                    CorrelationId: existing.CorrelationId,
+                    ReplayOutcome: existing.ReplayOutcome,
+                    ConflictReason: "DuplicateCorrelationId");
+            }
+        }
 
-        queue.Enqueue(evt);
-        return evt;
+        var entity = new TerminalQueueEventEntity
+        {
+            TerminalId = request.TerminalId,
+            EventType = request.EventType,
+            PayloadJson = request.PayloadJson,
+            Status = "Queued",
+            CorrelationId = request.CorrelationId,
+            CreatedAtUtc = DateTime.UtcNow,
+        };
+
+        _dbContext.TerminalQueueEvents.Add(entity);
+        await _dbContext.SaveChangesAsync(ct);
+
+        return new TerminalQueueEventDto(
+            EventId: entity.Id,
+            TerminalId: entity.TerminalId,
+            EventType: entity.EventType,
+            PayloadJson: entity.PayloadJson,
+            Status: entity.Status,
+            CreatedAtUtc: entity.CreatedAtUtc,
+            ReplayedAtUtc: entity.ReplayedAtUtc,
+            CorrelationId: entity.CorrelationId,
+            ReplayOutcome: entity.ReplayOutcome,
+            ConflictReason: entity.ConflictReason);
     }
 
-    public IReadOnlyList<TerminalQueueEventDto> ListQueuedEvents(string terminalId)
+    public async Task<IReadOnlyList<TerminalQueueEventDto>> ListQueuedEventsAsync(string terminalId, CancellationToken ct = default)
     {
-        if (!Queues.TryGetValue(terminalId, out var queue))
-            return Array.Empty<TerminalQueueEventDto>();
-
-        return queue.ToArray()
+        var items = await _dbContext.TerminalQueueEvents
+            .AsNoTracking()
+            .Where(x => x.TerminalId == terminalId)
             .OrderByDescending(x => x.CreatedAtUtc)
-            .ToList();
+            .ToListAsync(ct);
+
+        return items.Select(x => new TerminalQueueEventDto(
+            EventId: x.Id,
+            TerminalId: x.TerminalId,
+            EventType: x.EventType,
+            PayloadJson: x.PayloadJson,
+            Status: x.Status,
+            CreatedAtUtc: x.CreatedAtUtc,
+            ReplayedAtUtc: x.ReplayedAtUtc,
+            CorrelationId: x.CorrelationId,
+            ReplayOutcome: x.ReplayOutcome,
+            ConflictReason: x.ConflictReason)).ToList();
     }
 
-    public TerminalQueueReplayResultDto ReplayQueuedEvents(string terminalId, int take = 50)
+    public async Task<TerminalQueueReplayResultDto> ReplayQueuedEventsAsync(string terminalId, int take = 50, CancellationToken ct = default)
     {
-        if (!Queues.TryGetValue(terminalId, out var queue))
+        var queued = await _dbContext.TerminalQueueEvents
+            .Where(x => x.TerminalId == terminalId && x.Status == "Queued")
+            .OrderBy(x => x.CreatedAtUtc)
+            .Take(take)
+            .ToListAsync(ct);
+
+        if (queued.Count == 0)
         {
             return new TerminalQueueReplayResultDto(
                 TerminalId: terminalId,
@@ -78,27 +138,24 @@ public class TerminalAgentService : ITerminalAgentService
                 ExecutedAtUtc: DateTime.UtcNow);
         }
 
-        var replayed = 0;
         var replayStamp = DateTime.UtcNow;
-        var replayedItems = new List<TerminalQueueEventDto>();
-
-        while (replayed < take && queue.TryDequeue(out var evt))
+        foreach (var evt in queued)
         {
-            replayedItems.Add(evt with { Status = "Replayed", ReplayedAtUtc = replayStamp });
-            replayed++;
+            evt.Status = "Replayed";
+            evt.ReplayedAtUtc = replayStamp;
+            evt.ReplayOutcome = "Applied";
         }
 
-        foreach (var item in replayedItems)
-        {
-            // Replay tracking is represented through this service result for now.
-            // Next slice will persist outcomes to durable storage.
-        }
+        await _dbContext.SaveChangesAsync(ct);
+
+        var remaining = await _dbContext.TerminalQueueEvents
+            .CountAsync(x => x.TerminalId == terminalId && x.Status == "Queued", ct);
 
         return new TerminalQueueReplayResultDto(
             TerminalId: terminalId,
             Requested: take,
-            Replayed: replayed,
-            Remaining: queue.Count,
+            Replayed: queued.Count,
+            Remaining: remaining,
             ExecutedAtUtc: replayStamp);
     }
 }

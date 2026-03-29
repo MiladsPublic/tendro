@@ -63,7 +63,7 @@ builder.Services.AddScoped<IOrderDomainService, OrderDomainService>();
 builder.Services.AddScoped<IPaymentDomainService, PaymentDomainService>();
 builder.Services.AddSingleton<IMenuCatalogService, MenuCatalogService>();
 builder.Services.AddSingleton<IPrintService, PrintService>();
-builder.Services.AddSingleton<ITerminalAgentService, TerminalAgentService>();
+builder.Services.AddScoped<ITerminalAgentService, TerminalAgentService>();
 
 // Phase 3: EF Core Database Integration
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 

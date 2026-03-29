@@ -16,6 +16,7 @@ public class SambaDbContext : DbContext
     public DbSet<OrderEntity> Orders => Set<OrderEntity>();
     public DbSet<PaymentEntity> Payments => Set<PaymentEntity>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<TerminalQueueEventEntity> TerminalQueueEvents => Set<TerminalQueueEventEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -117,6 +118,23 @@ public class SambaDbContext : DbContext
 
             entity.HasIndex(e => e.IdempotencyKey).IsUnique();
             entity.HasIndex(e => e.ExpiresAtUtc);
+        });
+
+        modelBuilder.Entity<TerminalQueueEventEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TerminalId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.EventType).IsRequired().HasMaxLength(120);
+            entity.Property(e => e.PayloadJson).IsRequired();
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(32);
+            entity.Property(e => e.CorrelationId).HasMaxLength(128);
+            entity.Property(e => e.ReplayOutcome).HasMaxLength(128);
+            entity.Property(e => e.ConflictReason).HasMaxLength(256);
+            entity.Property(e => e.CreatedAtUtc).IsRequired();
+
+            entity.HasIndex(e => new { e.TerminalId, e.Status });
+            entity.HasIndex(e => e.CreatedAtUtc);
+            entity.HasIndex(e => new { e.TerminalId, e.CorrelationId });
         });
     }
 }

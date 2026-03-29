@@ -65,10 +65,11 @@ public static class TerminalAgentEndpoints
         return Results.Ok(terminalAgentService.ListHeartbeats());
     }
 
-    private static IResult EnqueueQueueEvent(
+    private static async Task<IResult> EnqueueQueueEvent(
         [FromBody] TerminalQueueEventRequest request,
         [FromServices] ITerminalAgentService terminalAgentService,
-        [FromServices] ILogger<Program> logger)
+        [FromServices] ILogger<Program> logger,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.TerminalId) || string.IsNullOrWhiteSpace(request.EventType))
         {
@@ -78,26 +79,28 @@ public static class TerminalAgentEndpoints
             ));
         }
 
-        var evt = terminalAgentService.EnqueueEvent(request);
+        var evt = await terminalAgentService.EnqueueEventAsync(request, ct);
         logger.LogInformation("Queued terminal event {EventId} for {TerminalId}", evt.EventId, evt.TerminalId);
         return Results.Accepted($"/api/v2/terminal-agent/queues/{evt.TerminalId}/events/{evt.EventId}", evt);
     }
 
-    private static IResult ListQueuedEvents(
+    private static async Task<IResult> ListQueuedEvents(
         [FromRoute] string terminalId,
-        [FromServices] ITerminalAgentService terminalAgentService)
+        [FromServices] ITerminalAgentService terminalAgentService,
+        CancellationToken ct)
     {
-        return Results.Ok(terminalAgentService.ListQueuedEvents(terminalId));
+        return Results.Ok(await terminalAgentService.ListQueuedEventsAsync(terminalId, ct));
     }
 
-    private static IResult ReplayQueuedEvents(
+    private static async Task<IResult> ReplayQueuedEvents(
         [FromRoute] string terminalId,
         [FromQuery] int take,
         [FromServices] ITerminalAgentService terminalAgentService,
-        [FromServices] ILogger<Program> logger)
+        [FromServices] ILogger<Program> logger,
+        CancellationToken ct)
     {
         var batchSize = take > 0 ? take : 50;
-        var result = terminalAgentService.ReplayQueuedEvents(terminalId, batchSize);
+        var result = await terminalAgentService.ReplayQueuedEventsAsync(terminalId, batchSize, ct);
         logger.LogInformation("Replayed {Count} queued terminal events for {TerminalId}", result.Replayed, terminalId);
         return Results.Ok(result);
     }

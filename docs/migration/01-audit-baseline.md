@@ -87,3 +87,11 @@ A direct cutover is high risk. The recommended approach is an incremental strang
   - `POST /api/v2/terminal-agent/queues/{terminalId}/replay`
 - Validation: modern API build, modern tests build, and web build all pass.
 - Next slice: durable queue persistence + replay outcome tracking + conflict resolution policy enforcement.
+
+## Execution Update - 2026-03-29 (Step 7)
+- Step 7 (Phase 3 durable queue persistence): Completed.
+- Replaced in-memory terminal queue storage with EF Core persistence in `TerminalQueueEvents`.
+- Added conflict policy for duplicate `correlationId` per terminal (returns `Conflict` with `DuplicateCorrelationId`).
+- Replay now updates durable event state (`Status=Replayed`, `ReplayOutcome=Applied`, `ReplayedAtUtc`) and returns remaining queued count from DB.
+- Added EF migration `20260329023542_TerminalQueueEventPersistence` with table/indexes for queue replay operations.
+- Validation: `dotnet build Samba.ApiServer.Modern`, `dotnet build Samba.ApiServer.Modern.Tests`, and `npm run build` (Samba.POS.Web) all succeeded.

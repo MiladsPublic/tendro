@@ -137,7 +137,9 @@ public sealed record TerminalQueueEventDto(
     string Status,
     DateTime CreatedAtUtc,
     DateTime? ReplayedAtUtc = null,
-    string? CorrelationId = null);
+    string? CorrelationId = null,
+    string? ReplayOutcome = null,
+    string? ConflictReason = null);
 
 /// <summary>Terminal queue replay execution result.</summary>
 public sealed record TerminalQueueReplayResultDto(

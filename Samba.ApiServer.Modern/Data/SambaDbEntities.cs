@@ -80,3 +80,20 @@ public class IdempotencyRecord
     public DateTime ExpiresAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 }
+
+/// <summary>
+/// Terminal queue event for offline replay tracking.
+/// </summary>
+public class TerminalQueueEventEntity
+{
+    public long Id { get; set; }
+    public string TerminalId { get; set; } = string.Empty;
+    public string EventType { get; set; } = string.Empty;
+    public string PayloadJson { get; set; } = string.Empty;
+    public string Status { get; set; } = "Queued";
+    public string? CorrelationId { get; set; }
+    public string? ReplayOutcome { get; set; }
+    public string? ConflictReason { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime? ReplayedAtUtc { get; set; }
+}

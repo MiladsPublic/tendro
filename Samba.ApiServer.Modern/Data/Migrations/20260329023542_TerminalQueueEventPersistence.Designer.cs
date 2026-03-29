@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Samba.ApiServer.Modern.Data;
 
@@ -11,9 +12,11 @@ using Samba.ApiServer.Modern.Data;
 namespace Samba.ApiServer.Modern.Data.Migrations
 {
     [DbContext(typeof(SambaDbContext))]
-    partial class SambaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260329023542_TerminalQueueEventPersistence")]
+    partial class TerminalQueueEventPersistence
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
