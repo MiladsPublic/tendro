@@ -22,6 +22,23 @@ public static class TerminalAgentEndpoints
             .WithName("ListTerminalHeartbeats")
             .WithSummary("List latest terminal heartbeat statuses")
             .Produces<IReadOnlyList<TerminalHeartbeatDto>>(StatusCodes.Status200OK);
+
+        group.MapPost("/queues/events", EnqueueQueueEvent)
+            .WithName("EnqueueTerminalQueueEvent")
+            .WithSummary("Enqueue offline terminal event for replay")
+            .Accepts<TerminalQueueEventRequest>("application/json")
+            .Produces<TerminalQueueEventDto>(StatusCodes.Status202Accepted)
+            .Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
+
+        group.MapGet("/queues/{terminalId}/events", ListQueuedEvents)
+            .WithName("ListTerminalQueuedEvents")
+            .WithSummary("List pending queued events for terminal")
+            .Produces<IReadOnlyList<TerminalQueueEventDto>>(StatusCodes.Status200OK);
+
+        group.MapPost("/queues/{terminalId}/replay", ReplayQueuedEvents)
+            .WithName("ReplayTerminalQueuedEvents")
+            .WithSummary("Replay queued events for terminal")
+            .Produces<TerminalQueueReplayResultDto>(StatusCodes.Status200OK);
     }
 
     private static IResult UpsertHeartbeat(
@@ -46,5 +63,42 @@ public static class TerminalAgentEndpoints
         [FromServices] ITerminalAgentService terminalAgentService)
     {
         return Results.Ok(terminalAgentService.ListHeartbeats());
+    }
+
+    private static IResult EnqueueQueueEvent(
+        [FromBody] TerminalQueueEventRequest request,
+        [FromServices] ITerminalAgentService terminalAgentService,
+        [FromServices] ILogger<Program> logger)
+    {
+        if (string.IsNullOrWhiteSpace(request.TerminalId) || string.IsNullOrWhiteSpace(request.EventType))
+        {
+            return Results.BadRequest(new ErrorResponse(
+                Error: "ValidationError",
+                Message: "terminalId and eventType are required"
+            ));
+        }
+
+        var evt = terminalAgentService.EnqueueEvent(request);
+        logger.LogInformation("Queued terminal event {EventId} for {TerminalId}", evt.EventId, evt.TerminalId);
+        return Results.Accepted($"/api/v2/terminal-agent/queues/{evt.TerminalId}/events/{evt.EventId}", evt);
+    }
+
+    private static IResult ListQueuedEvents(
+        [FromRoute] string terminalId,
+        [FromServices] ITerminalAgentService terminalAgentService)
+    {
+        return Results.Ok(terminalAgentService.ListQueuedEvents(terminalId));
+    }
+
+    private static IResult ReplayQueuedEvents(
+        [FromRoute] string terminalId,
+        [FromQuery] int take,
+        [FromServices] ITerminalAgentService terminalAgentService,
+        [FromServices] ILogger<Program> logger)
+    {
+        var batchSize = take > 0 ? take : 50;
+        var result = terminalAgentService.ReplayQueuedEvents(terminalId, batchSize);
+        logger.LogInformation("Replayed {Count} queued terminal events for {TerminalId}", result.Replayed, terminalId);
+        return Results.Ok(result);
     }
 }

@@ -459,3 +459,21 @@ Rule: OnPaymentProcessed
 - Added in-memory terminal agent heartbeat service to track latest terminal status.
 - Warning hardening: modern API and modern test projects now build cleanly with no current compiler/analyzer warnings.
 - Step objective status: complete for initial heartbeat/protocol bootstrap; next Phase 3 slices are queue replay and device adapter bridging.
+
+## Execution Update - 2026-03-29 (Step 6)
+
+- Step 6 (Phase 3 queue replay bootstrap): Completed.
+- Added queue replay protocol contracts:
+  - `TerminalQueueEventRequest`
+  - `TerminalQueueEventDto`
+  - `TerminalQueueReplayResultDto`
+- Added terminal-agent queue service capabilities:
+  - enqueue offline event
+  - list queued events by terminal
+  - replay queued batch by terminal
+- Added API endpoints:
+  - `POST /api/v2/terminal-agent/queues/events`
+  - `GET /api/v2/terminal-agent/queues/{terminalId}/events`
+  - `POST /api/v2/terminal-agent/queues/{terminalId}/replay`
+- Validation: modern API build, modern tests build, and web build all pass.
+- Next slice: durable queue persistence + replay outcome tracking + conflict resolution policy enforcement.

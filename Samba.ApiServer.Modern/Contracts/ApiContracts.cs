@@ -121,6 +121,32 @@ public sealed record TerminalHeartbeatDto(
     string? AgentVersion,
     DateTime LastSeenUtc);
 
+/// <summary>Terminal offline queue event request payload.</summary>
+public sealed record TerminalQueueEventRequest(
+    string TerminalId,
+    string EventType,
+    string PayloadJson,
+    string? CorrelationId = null);
+
+/// <summary>Terminal offline queue event status payload.</summary>
+public sealed record TerminalQueueEventDto(
+    long EventId,
+    string TerminalId,
+    string EventType,
+    string PayloadJson,
+    string Status,
+    DateTime CreatedAtUtc,
+    DateTime? ReplayedAtUtc = null,
+    string? CorrelationId = null);
+
+/// <summary>Terminal queue replay execution result.</summary>
+public sealed record TerminalQueueReplayResultDto(
+    string TerminalId,
+    int Requested,
+    int Replayed,
+    int Remaining,
+    DateTime ExecutedAtUtc);
+
 /// <summary>Standard pagination response wrapper</summary>
 public sealed record PagedResponse<T>(
     IReadOnlyList<T> Items,
