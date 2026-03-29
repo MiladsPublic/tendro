@@ -88,6 +88,22 @@ public sealed record PaymentDto(
     DateTime ProcessedAt,
     string PaymentType);
 
+/// <summary>Ticket reprint request contract.</summary>
+public sealed record ReprintTicketRequest(
+    int TicketId,
+    string? Reason = null,
+    string? RequestedBy = null);
+
+/// <summary>Print job response contract.</summary>
+public sealed record PrintJobDto(
+    long JobId,
+    int TicketId,
+    string JobType,
+    string Status,
+    DateTime CreatedAtUtc,
+    string? Reason = null,
+    string? RequestedBy = null);
+
 /// <summary>Standard pagination response wrapper</summary>
 public sealed record PagedResponse<T>(
     IReadOnlyList<T> Items,

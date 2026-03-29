@@ -214,7 +214,9 @@ public static class PaymentEndpoints
 
     private static async Task<IResult> ProcessPayment(
         [FromBody] ProcessPaymentRequest request,
+        [FromQuery] int ticketId,
         [FromServices] IPaymentDomainService paymentService,
+        [FromServices] ITicketDomainService ticketService,
         [FromServices] ILogger<Program> logger,
         CancellationToken ct)
     {
@@ -229,15 +231,28 @@ public static class PaymentEndpoints
                 ));
             }
 
-            // Ticket ID would be extracted from context or request
-            // For now, placeholder
-            logger.LogInformation("Processing payment with idempotency key {IdempotencyKey}", 
-                request.IdempotencyKey);
-            
-            return Results.BadRequest(new ErrorResponse(
-                Error: "NotImplemented",
-                Message: "Phase 2: Payment processing pending integration with domain models"
-            ));
+            if (ticketId <= 0)
+            {
+                logger.LogWarning("ProcessPayment called without a valid ticket id");
+                return Results.BadRequest(new ErrorResponse(
+                    Error: "ValidationError",
+                    Message: "ticketId query parameter is required"
+                ));
+            }
+
+            var ticket = await ticketService.GetTicketAsync(ticketId, ct);
+            if (ticket == null)
+            {
+                logger.LogWarning("ProcessPayment called for missing ticket {TicketId}", ticketId);
+                return Results.NotFound(new ErrorResponse(
+                    Error: "NotFound",
+                    Message: $"Ticket {ticketId} not found"
+                ));
+            }
+
+            var payment = await paymentService.ProcessPaymentAsync(ticketId, request, ct);
+            logger.LogInformation("Processed payment {PaymentId} for ticket {TicketId}", payment.Id, ticketId);
+            return Results.Created($"/api/v2/payments/{payment.Id}", payment);
         }
         catch (Exception ex)
         {
@@ -398,6 +413,52 @@ public static class OrderEndpoints
         catch (Exception ex)
         {
             logger.LogError(ex, "Error voiding order");
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+        }
+    }
+}
+
+public static class PrintEndpoints
+{
+    public static void MapPrintEndpoints(this WebApplication app)
+    {
+        var group = app.MapGroup("/api/v2/print-jobs")
+            .WithTags("Print")
+            .WithName("PrintJobs");
+
+        group.MapPost("/reprint", QueueReprint)
+            .WithName("QueueTicketReprint")
+            .WithSummary("Queue ticket reprint request")
+            .Accepts<ReprintTicketRequest>("application/json")
+            .Produces<PrintJobDto>(StatusCodes.Status202Accepted)
+            .Produces<ErrorResponse>(StatusCodes.Status404NotFound);
+    }
+
+    private static async Task<IResult> QueueReprint(
+        [FromBody] ReprintTicketRequest request,
+        [FromServices] ITicketDomainService ticketService,
+        [FromServices] IPrintService printService,
+        [FromServices] ILogger<Program> logger,
+        CancellationToken ct)
+    {
+        try
+        {
+            var ticket = await ticketService.GetTicketAsync(request.TicketId, ct);
+            if (ticket == null)
+            {
+                return Results.NotFound(new ErrorResponse(
+                    Error: "NotFound",
+                    Message: $"Ticket {request.TicketId} not found"
+                ));
+            }
+
+            var job = await printService.QueueTicketReprintAsync(request, ct);
+            logger.LogInformation("Queued reprint job {JobId} for ticket {TicketId}", job.JobId, job.TicketId);
+            return Results.Accepted($"/api/v2/print-jobs/{job.JobId}", job);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error queueing ticket reprint");
             return Results.StatusCode(StatusCodes.Status500InternalServerError);
         }
     }

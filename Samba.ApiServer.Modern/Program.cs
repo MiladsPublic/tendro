@@ -61,6 +61,8 @@ builder.Services.AddScoped<IHealthCheckService, AspNetCoreHealthCheckService>();
 builder.Services.AddScoped<ITicketDomainService, TicketDomainService>();
 builder.Services.AddScoped<IOrderDomainService, OrderDomainService>();
 builder.Services.AddScoped<IPaymentDomainService, PaymentDomainService>();
+builder.Services.AddSingleton<IMenuCatalogService, MenuCatalogService>();
+builder.Services.AddSingleton<IPrintService, PrintService>();
 
 // Phase 3: EF Core Database Integration
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
@@ -183,6 +185,7 @@ systemGroup.MapGet("/metrics", HandleMetrics)
 app.MapTicketEndpoints();
 app.MapPaymentEndpoints();
 app.MapOrderEndpoints();
+app.MapPrintEndpoints();
 
 // Fallback 404 handler
 app.MapFallback((HttpContext ctx) =>

@@ -1,0 +1,17 @@
+{
+  "name": "SambaPOS Web",
+  "short_name": "SambaPOS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5efe4",
+  "theme_color": "#1d3a34",
+  "description": "Touch-first SambaPOS terminal experience for the Phase 4 rollout.",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -108,12 +108,12 @@ namespace Samba.ApiServer.Modern.Tests.Phase3
             var ticket2 = await _ticketService.CreateTicketAsync(req2);
 
             // Act
-            var (tickets, totalCount) = await _ticketService.ListOpenTicketsAsync(1, 1, 20);
+            var page = await _ticketService.ListOpenTicketsAsync(1, 1, 20);
 
             // Assert
-            Assert.NotNull(tickets);
-            Assert.Equal(2, tickets.Count);
-            Assert.Equal(2, totalCount);
+            Assert.NotNull(page);
+            Assert.Equal(2, page.Items.Count);
+            Assert.Equal(2, page.TotalCount);
         }
 
         [Fact]
@@ -127,14 +127,14 @@ namespace Samba.ApiServer.Modern.Tests.Phase3
             }
 
             // Act
-            var (page1, count1) = await _ticketService.ListOpenTicketsAsync(1, 1, 2);
-            var (page2, count2) = await _ticketService.ListOpenTicketsAsync(1, 2, 2);
+            var page1 = await _ticketService.ListOpenTicketsAsync(1, 1, 2);
+            var page2 = await _ticketService.ListOpenTicketsAsync(1, 2, 2);
 
             // Assert
-            Assert.Equal(2, page1.Count);
-            Assert.Equal(1, page2.Count);
-            Assert.Equal(3, count1);
-            Assert.Equal(3, count2);
+            Assert.Equal(2, page1.Items.Count);
+            Assert.Equal(1, page2.Items.Count);
+            Assert.Equal(3, page1.TotalCount);
+            Assert.Equal(3, page2.TotalCount);
         }
 
         [Fact]
@@ -193,8 +193,8 @@ namespace Samba.ApiServer.Modern.Tests.Phase3
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal("Served", result.StateName);
-            Assert.Equal("waiting_payment", result.StateValue);
+            Assert.Equal(ticket.Id, result.Id);
+            Assert.False(result.IsClosed);
         }
 
         [Fact]

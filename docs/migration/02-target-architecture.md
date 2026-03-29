@@ -21,6 +21,7 @@ Date: 2026-03-29
    - Browser-based UI for operators.
    - Optimized for touch workflows and constrained device layouts.
    - Offline-aware UI state with queue visibility and recovery UX.
+   - Monorepo project path: `Samba.POS.Web` using React + TypeScript + Vite.
 
 3. Terminal Agent (cross-platform service)
    - Runs on each POS station.
@@ -36,6 +37,7 @@ Date: 2026-03-29
 - API owns business invariants and workflow validation.
 - Terminal Agent owns local hardware execution and offline buffering.
 - Web UI owns interaction and operator workflow ergonomics.
+- Web UI consumes the modern API as canonical truth and keeps local state only for UX and offline buffering.
 - Legacy WPF remains fallback path until parity gates pass.
 
 ## Deployment Model
@@ -46,3 +48,11 @@ Date: 2026-03-29
    - Selected terminals run web POS + terminal agent.
 3. Full migration:
    - Legacy self-host API and WPF transactional paths retired after parity and reliability objectives are met.
+
+## Execution Update - 2026-03-29
+
+- Step 1 (quality gate): Completed. `Samba.ApiServer.Modern.Tests` compile drift fixed against current API contracts.
+- Step 2 (domain placeholder reduction): Completed for order naming/pricing lookup by introducing catalog-backed resolution in domain services.
+- Step 3 (reprint pathway): Completed for backend-supported queueing via `/api/v2/print-jobs/reprint`, with frontend reprint action now calling backend API.
+- Build verification: `dotnet build` succeeds for modern API and modern test project; `npm run build` succeeds for `Samba.POS.Web`.
+- Remaining hardening: package vulnerability advisories (`NU1902`/`NU1903`) still outstanding.

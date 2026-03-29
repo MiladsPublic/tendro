@@ -71,10 +71,11 @@ public class EfCoreTicketRepository : ITicketRepository
             CreatedAt = entity.CreatedAtUtc,
             IsClosed = entity.IsClosed,
             TotalAmount = entity.TotalAmount,
-            RemainingAmount = entity.TotalAmount,
+            RemainingAmount = entity.TotalAmount - (entity.Payments?.Sum(p => p.Amount) ?? 0m),
             Orders = entity.Orders?.Select(o => new OrderAggregate
             {
                 Id = o.Id,
+                TicketId = o.TicketId,
                 MenuItemId = o.MenuItemId,
                 MenuItemName = o.PortionName ?? "Item",
                 Quantity = o.Quantity,
@@ -84,6 +85,7 @@ public class EfCoreTicketRepository : ITicketRepository
             Payments = entity.Payments?.Select(p => new PaymentAggregate
             {
                 Id = p.Id,
+                TicketId = p.TicketId,
                 Amount = p.Amount,
                 ProcessedAt = p.CreatedAtUtc,
                 PaymentType = p.PaymentType
@@ -109,6 +111,7 @@ public class EfCoreTicketRepository : ITicketRepository
             Orders = aggregate.Orders?.Select(o => new OrderEntity
             {
                 Id = o.Id,
+                TicketId = aggregate.Id,
                 MenuItemId = o.MenuItemId,
                 PortionName = o.MenuItemName,
                 Tags = null,
@@ -184,6 +187,7 @@ public class EfCoreOrderRepository : IOrderRepository
         return new OrderAggregate
         {
             Id = entity.Id,
+            TicketId = entity.TicketId,
             MenuItemId = entity.MenuItemId,
             MenuItemName = entity.PortionName ?? "Item",
             Quantity = entity.Quantity,
@@ -197,6 +201,7 @@ public class EfCoreOrderRepository : IOrderRepository
         return new OrderEntity
         {
             Id = aggregate.Id,
+            TicketId = aggregate.TicketId,
             MenuItemId = aggregate.MenuItemId,
             PortionName = aggregate.MenuItemName,
             Tags = null,
@@ -253,6 +258,7 @@ public class EfCorePaymentRepository : IPaymentRepository
         return new PaymentAggregate
         {
             Id = entity.Id,
+            TicketId = entity.TicketId,
             Amount = entity.Amount,
             ProcessedAt = entity.CreatedAtUtc,
             PaymentType = entity.PaymentType
@@ -264,6 +270,7 @@ public class EfCorePaymentRepository : IPaymentRepository
         return new PaymentEntity
         {
             Id = aggregate.Id,
+            TicketId = aggregate.TicketId,
             PaymentTypeId = 1,
             PaymentType = aggregate.PaymentType,
             Amount = aggregate.Amount,

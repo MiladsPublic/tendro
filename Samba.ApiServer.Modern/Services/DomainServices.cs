@@ -1,5 +1,6 @@
 using Samba.ApiServer.Modern.Contracts;
 using Samba.ApiServer.Modern.Data;
+using System.Globalization;
 
 namespace Samba.ApiServer.Modern.Services;
 
@@ -109,15 +110,18 @@ public class TicketDomainService : ITicketDomainService
     private readonly ILogger<TicketDomainService> _logger;
     private readonly ITicketRepository _ticketRepo;
     private readonly IOrderRepository _orderRepo;
+    private readonly IMenuCatalogService _menuCatalogService;
 
     public TicketDomainService(
         ILogger<TicketDomainService> logger,
         ITicketRepository ticketRepo,
-        IOrderRepository orderRepo)
+        IOrderRepository orderRepo,
+        IMenuCatalogService menuCatalogService)
     {
         _logger = logger;
         _ticketRepo = ticketRepo;
         _orderRepo = orderRepo;
+        _menuCatalogService = menuCatalogService;
     }
 
     public async Task<TicketDto> CreateTicketAsync(CreateTicketRequest request, CancellationToken ct = default)
@@ -172,12 +176,14 @@ public class TicketDomainService : ITicketDomainService
             throw new KeyNotFoundException($"Ticket {ticketId} not found");
         }
 
+        var catalog = _menuCatalogService.Resolve(request.MenuItemId, request.PortionName, request.Tags);
         var order = new OrderAggregate
         {
+            TicketId = ticketId,
             MenuItemId = request.MenuItemId,
-            MenuItemName = "MenuItem", // Placeholder - would fetch from menu service in Phase 3
+            MenuItemName = catalog.MenuItemName,
             Quantity = request.Quantity,
-            UnitPrice = 1m, // Placeholder - would fetch from menu service in Phase 3
+            UnitPrice = catalog.UnitPrice,
             Status = "Pending"
         };
 
@@ -320,9 +326,10 @@ public class PaymentDomainService : IPaymentDomainService
         // Create new payment
         var payment = new PaymentAggregate
         {
+            TicketId = ticketId,
             Amount = request.Amount,
             ProcessedAt = DateTime.UtcNow,
-            PaymentType = "Cash" // Placeholder - would look up actual type in Phase 3
+            PaymentType = request.PaymentTypeId == 1 ? "Cash" : "Card"
         };
 
         await _paymentRepo.CreateAsync(payment, ct);
@@ -358,6 +365,7 @@ public class PaymentDomainService : IPaymentDomainService
         // Create refund payment record
         var refund = new PaymentAggregate
         {
+            TicketId = payment.TicketId,
             Amount = -payment.Amount, // Negative to indicate refund
             ProcessedAt = DateTime.UtcNow,
             PaymentType = "Refund"
@@ -413,6 +421,12 @@ public interface IIdempotencyService
     Task StoreResultAsync(string idempotencyKey, PaymentDto result, TimeSpan ttl, CancellationToken ct = default);
 }
 
+/// <summary>Menu catalog lookup abstraction for item naming and pricing.</summary>
+public interface IMenuCatalogService
+{
+    (string MenuItemName, decimal UnitPrice) Resolve(int menuItemId, string? portionName, IReadOnlyDictionary<string, string>? tags);
+}
+
 // ============================================================
 // Aggregate Root Stubs (Phase 2 Domain Models)
 // Will replace with Samba.Domain models
@@ -421,7 +435,7 @@ public interface IIdempotencyService
 public class TicketAggregate
 {
     public int Id { get; set; }
-    public string TicketNumber { get; set; }
+    public string TicketNumber { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public ICollection<OrderAggregate> Orders { get; set; } = new List<OrderAggregate>();
     public ICollection<PaymentAggregate> Payments { get; set; } = new List<PaymentAggregate>();
@@ -444,8 +458,9 @@ public class TicketAggregate
 public class OrderAggregate
 {
     public int Id { get; set; }
+    public int TicketId { get; set; }
     public int MenuItemId { get; set; }
-    public string MenuItemName { get; set; }
+    public string MenuItemName { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal LineTotal => Quantity * UnitPrice;
@@ -465,9 +480,10 @@ public class OrderAggregate
 public class PaymentAggregate
 {
     public int Id { get; set; }
+    public int TicketId { get; set; }
     public decimal Amount { get; set; }
     public DateTime ProcessedAt { get; set; }
-    public string PaymentType { get; set; }
+    public string PaymentType { get; set; } = string.Empty;
 
     public PaymentDto ToDto() => new(
         Id: Id,
@@ -475,4 +491,38 @@ public class PaymentAggregate
         ProcessedAt: ProcessedAt,
         PaymentType: PaymentType
     );
+}
+
+public class MenuCatalogService : IMenuCatalogService
+{
+    private static readonly IReadOnlyDictionary<int, (string Name, decimal Price)> Catalog =
+        new Dictionary<int, (string Name, decimal Price)>
+        {
+            [100] = ("Fireline Burger", 16.50m),
+            [101] = ("Skewer Plate", 21.00m),
+            [200] = ("Garden Citrus", 10.50m),
+            [201] = ("Halloumi Crunch", 13.00m),
+            [300] = ("Flat White", 4.20m),
+            [301] = ("Cold Brew Tonic", 5.40m),
+            [400] = ("Burnt Cheesecake", 8.80m),
+            [401] = ("Affogato", 6.50m),
+        };
+
+    public (string MenuItemName, decimal UnitPrice) Resolve(int menuItemId, string? portionName, IReadOnlyDictionary<string, string>? tags)
+    {
+        if (tags != null && tags.TryGetValue("unitPrice", out var rawPrice) &&
+            decimal.TryParse(rawPrice, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsedPrice) && parsedPrice > 0)
+        {
+            var tagName = !string.IsNullOrWhiteSpace(portionName) ? portionName! : $"Item {menuItemId}";
+            return (tagName, parsedPrice);
+        }
+
+        if (Catalog.TryGetValue(menuItemId, out var item))
+        {
+            return (item.Name, item.Price);
+        }
+
+        var fallbackName = !string.IsNullOrWhiteSpace(portionName) ? portionName! : $"Item {menuItemId}";
+        return (fallbackName, 1.00m);
+    }
 }

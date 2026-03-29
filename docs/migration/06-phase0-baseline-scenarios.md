@@ -433,3 +433,11 @@ Rule: OnPaymentProcessed
 ✓ Baseline snapshots archived in version control  
 
 **Phase 0 Complete:** Ready for Phase 1 foundation modernization.
+
+## Execution Update - 2026-03-29
+
+- Step 1 (quality gate): Completed. `Samba.ApiServer.Modern.Tests` compile drift fixed against current API contracts.
+- Step 2 (domain placeholder reduction): Completed for order naming/pricing lookup by introducing catalog-backed resolution in domain services.
+- Step 3 (reprint pathway): Completed for backend-supported queueing via `/api/v2/print-jobs/reprint`, with frontend reprint action now calling backend API.
+- Build verification: `dotnet build` succeeds for modern API and modern test project; `npm run build` succeeds for `Samba.POS.Web`.
+- Remaining hardening: package vulnerability advisories (`NU1902`/`NU1903`) still outstanding.

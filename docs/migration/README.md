@@ -17,11 +17,25 @@ This folder contains the migration reference documents for moving SambaPOS from 
 
 ## Current Progress Snapshot
 
-- A new parallel modern API host has already been created in Samba.ApiServer.Modern.
-- The project targets net10.0 and compiles successfully.
-- Initial endpoints are available:
-  - GET /health
-  - GET /api/v2/system/info
+- Modern API host (`Samba.ApiServer.Modern`) is active on .NET 10 and builds successfully.
+- Domain endpoint surface exists for tickets, orders, and payments.
+- Web POS app (`Samba.POS.Web`) has completed planned Phase 4 workflow slices and builds successfully.
+- Live web-to-API integration currently covers:
+   - ticket list
+   - ticket detail
+   - ticket create
+   - add order to ticket
+   - process payment
+   - refund payment
+   - close ticket
+   - ticket/order state actions
+- Known outstanding gaps:
+   - menu/pricing behavior still has placeholder backend assumptions
+   - reprint remains UI-level acknowledgement until hardware bridge work
+   - Phase 3 offline/device platform scope not started
+   - modern API test project compile drift remains
+
+See [PHASE_STATUS.md](PHASE_STATUS.md) for the current audit and next-step sequence.
 
 ## How To Use This Pack
 
@@ -29,3 +43,11 @@ This folder contains the migration reference documents for moving SambaPOS from 
 2. Use the implementation plan to sequence work and avoid high-risk coupling.
 3. Use the reference implementation doc to keep coding patterns consistent.
 4. Use risk and gate definitions before moving each phase to production.
+
+## Execution Update - 2026-03-29
+
+- Step 1 (quality gate): Completed. `Samba.ApiServer.Modern.Tests` compile drift fixed against current API contracts.
+- Step 2 (domain placeholder reduction): Completed for order naming/pricing lookup by introducing catalog-backed resolution in domain services.
+- Step 3 (reprint pathway): Completed for backend-supported queueing via `/api/v2/print-jobs/reprint`, with frontend reprint action now calling backend API.
+- Build verification: `dotnet build` succeeds for modern API and modern test project; `npm run build` succeeds for `Samba.POS.Web`.
+- Remaining hardening: package vulnerability advisories (`NU1902`/`NU1903`) still outstanding.
