@@ -104,6 +104,23 @@ public sealed record PrintJobDto(
     string? Reason = null,
     string? RequestedBy = null);
 
+/// <summary>Terminal agent heartbeat request payload.</summary>
+public sealed record TerminalHeartbeatRequest(
+    string TerminalId,
+    string StationName,
+    bool Online,
+    int PendingQueueCount,
+    string? AgentVersion = null);
+
+/// <summary>Terminal agent heartbeat status payload.</summary>
+public sealed record TerminalHeartbeatDto(
+    string TerminalId,
+    string StationName,
+    bool Online,
+    int PendingQueueCount,
+    string? AgentVersion,
+    DateTime LastSeenUtc);
+
 /// <summary>Standard pagination response wrapper</summary>
 public sealed record PagedResponse<T>(
     IReadOnlyList<T> Items,

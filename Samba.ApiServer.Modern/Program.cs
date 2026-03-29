@@ -63,6 +63,7 @@ builder.Services.AddScoped<IOrderDomainService, OrderDomainService>();
 builder.Services.AddScoped<IPaymentDomainService, PaymentDomainService>();
 builder.Services.AddSingleton<IMenuCatalogService, MenuCatalogService>();
 builder.Services.AddSingleton<IPrintService, PrintService>();
+builder.Services.AddSingleton<ITerminalAgentService, TerminalAgentService>();
 
 // Phase 3: EF Core Database Integration
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
@@ -156,7 +157,7 @@ systemGroup.MapGet("/health/ready", HandleReadinessProbe)
     .WithName("GetReadinessProbe")
     .WithSummary("Kubernetes-style readiness probe");
 
-systemGroup.MapGet("/health/live", HandleLivenessProbe)
+systemGroup.MapGet("/health/live", () => Results.Ok())
     .WithName("GetLivenessProbe")
     .WithSummary("Kubernetes-style liveness probe");
 
@@ -168,7 +169,7 @@ authGroup.MapPost("/login", HandleLogin)
     .WithName("Login")
     .WithSummary("Authenticate user and return session token");
 
-authGroup.MapPost("/logout", HandleLogout)
+authGroup.MapPost("/logout", (Delegate)HandleLogout)
     .WithName("Logout")
     .WithSummary("Invalidate user session")
     .RequireAuthorization();
@@ -186,6 +187,7 @@ app.MapTicketEndpoints();
 app.MapPaymentEndpoints();
 app.MapOrderEndpoints();
 app.MapPrintEndpoints();
+app.MapTerminalAgentEndpoints();
 
 // Fallback 404 handler
 app.MapFallback((HttpContext ctx) =>
@@ -284,11 +286,6 @@ async Task<IResult> HandleReadinessProbe(
         : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
 }
 
-async Task<IResult> HandleLivenessProbe()
-{
-    return Results.Ok();
-}
-
 async Task<IResult> HandleLogin(
     [FromBody] LoginRequest request,
     [FromServices] IAuthenticationService authService,
@@ -301,7 +298,7 @@ async Task<IResult> HandleLogin(
         {
             logger.LogInformation("User {Username} logged in", request.Username);
             return Results.Ok(new LoginResponse(
-                Token: result.Token,
+                Token: result.Token ?? string.Empty,
                 ExpiresIn: 1800,
                 TokenType: "Bearer",
                 User: new UserInfo(request.Username, result.UserId)

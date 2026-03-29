@@ -220,3 +220,21 @@ Phase 3 remains compatible with Phase 2's in-memory repositories:
 - Step 3 (reprint pathway): Completed for backend-supported queueing via `/api/v2/print-jobs/reprint`, with frontend reprint action now calling backend API.
 - Build verification: `dotnet build` succeeds for modern API and modern test project; `npm run build` succeeds for `Samba.POS.Web`.
 - Remaining hardening: package vulnerability advisories (`NU1902`/`NU1903`) still outstanding.
+
+## Execution Update - 2026-03-29 (Step 4)
+
+- Step 4 (security hardening): Completed.
+- Upgraded vulnerable dependency chains in modern API and modern test projects to net10-era package lines.
+- Verification: modern API build passes, modern tests build passes, web app build passes.
+- Vulnerability scan result: no vulnerable packages reported for `Samba.ApiServer.Modern` and `Samba.ApiServer.Modern.Tests` using current NuGet sources.
+- Remaining follow-up: address non-security code warnings (e.g., nullable/auth token warning and analyzer warning) as a separate cleanup task.
+
+## Execution Update - 2026-03-29 (Step 5)
+
+- Step 5 (Phase 3 bootstrap): Started with a terminal-agent heartbeat slice.
+- Added API contracts and endpoints for terminal heartbeats:
+  - `POST /api/v2/terminal-agent/heartbeats`
+  - `GET /api/v2/terminal-agent/heartbeats`
+- Added in-memory terminal agent heartbeat service to track latest terminal status.
+- Warning hardening: modern API and modern test projects now build cleanly with no current compiler/analyzer warnings.
+- Step objective status: complete for initial heartbeat/protocol bootstrap; next Phase 3 slices are queue replay and device adapter bridging.

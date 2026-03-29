@@ -132,7 +132,7 @@ namespace Samba.ApiServer.Modern.Tests.Phase3
 
             // Assert
             Assert.Equal(2, page1.Items.Count);
-            Assert.Equal(1, page2.Items.Count);
+            Assert.Single(page2.Items);
             Assert.Equal(3, page1.TotalCount);
             Assert.Equal(3, page2.TotalCount);
         }
