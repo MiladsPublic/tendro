@@ -7,7 +7,8 @@
       "launchBrowser": false,
       "applicationUrl": "http://localhost:5180",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ConnectionStrings__DefaultConnection": "Server=localhost,14333;Database=SambaPOS_Phase3;User Id=sa;Password=SambaPos_12345!;Encrypt=false;TrustServerCertificate=true;"
       }
     }
   }

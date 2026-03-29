@@ -20,6 +20,7 @@ public class EfCoreTicketRepository : ITicketRepository
     public async Task<TicketAggregate?> GetByIdAsync(int ticketId, CancellationToken ct = default)
     {
         var entity = await _context.Tickets
+            .AsNoTracking()
             .Include(t => t.Orders)
             .Include(t => t.Payments)
             .FirstOrDefaultAsync(t => t.Id == ticketId, ct);
@@ -35,6 +36,7 @@ public class EfCoreTicketRepository : ITicketRepository
 
         var totalCount = await query.CountAsync(ct);
         var entities = await query
+            .AsNoTracking()
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .Include(t => t.Orders)
@@ -127,6 +129,7 @@ public class EfCoreTicketRepository : ITicketRepository
             Payments = aggregate.Payments?.Select(p => new PaymentEntity
             {
                 Id = p.Id,
+                TicketId = aggregate.Id,
                 PaymentTypeId = 1,
                 PaymentType = p.PaymentType,
                 Amount = p.Amount,

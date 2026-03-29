@@ -189,7 +189,6 @@ public class TicketDomainService : ITicketDomainService
 
         var orders = ((IList<OrderAggregate>)ticket.Orders).ToList();
         orders.Add(order);
-        order.Id = orders.Count; // Simple ID assignment
 
         ticket.Orders = orders;
         ticket.TotalAmount = orders.Sum(o => o.LineTotal);

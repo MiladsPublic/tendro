@@ -192,3 +192,11 @@ Exit Criteria:
 - Replay now updates durable event state (`Status=Replayed`, `ReplayOutcome=Applied`, `ReplayedAtUtc`) and returns remaining queued count from DB.
 - Added EF migration `20260329023542_TerminalQueueEventPersistence` with table/indexes for queue replay operations.
 - Validation: `dotnet build Samba.ApiServer.Modern`, `dotnet build Samba.ApiServer.Modern.Tests`, and `npm run build` (Samba.POS.Web) all succeeded.
+
+## Execution Update - 2026-03-29 (Step 8)
+- Step 8 (ticket write-path stabilization): Completed.
+- Fixed EF tracking conflict risk by making ticket aggregate reads no-tracking in `EfCoreTicketRepository`.
+- Verified `POST /api/v2/tickets/{ticketId}/orders` no longer returns 500 in local container-backed runtime.
+- Verified ticket detail reflects persisted order rows after add-order.
+- Added explicit POS gap backlog and execution slices in `docs/migration/09-pos-functional-gap-backlog.md`.
+- Validation: `dotnet build Samba.ApiServer.Modern`, `dotnet build Samba.ApiServer.Modern.Tests`, and runtime curl checks for create ticket/add order/get ticket succeeded.
