@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Samba.ApiServer.Modern.Middleware;
 using Samba.ApiServer.Modern.Services;
 using Samba.ApiServer.Modern.Contracts;
@@ -56,16 +57,31 @@ builder.Services.AddScoped<IRequestCorrelationService, RequestCorrelationService
 builder.Services.AddScoped<IAuthenticationService, BasicAuthenticationService>();
 builder.Services.AddScoped<IHealthCheckService, AspNetCoreHealthCheckService>();
 
-// Phase 2: Domain Services (pending database integration)
+// Phase 2: Domain Services
 builder.Services.AddScoped<ITicketDomainService, TicketDomainService>();
 builder.Services.AddScoped<IOrderDomainService, OrderDomainService>();
 builder.Services.AddScoped<IPaymentDomainService, PaymentDomainService>();
 
-// Phase 2: Repository placeholders (will integrate with EF Core in Phase 2)
-builder.Services.AddScoped<ITicketRepository, InMemoryTicketRepository>();
-builder.Services.AddScoped<IOrderRepository, InMemoryOrderRepository>();
-builder.Services.AddScoped<IPaymentRepository, InMemoryPaymentRepository>();
-builder.Services.AddScoped<IIdempotencyService, InMemoryIdempotencyService>();
+// Phase 3: EF Core Database Integration
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? "Server=(local);Database=SambaPOS;Trusted_Connection=true;";
+
+builder.Services.AddDbContext<SambaDbContext>(options =>
+{
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.MigrationsAssembly("Samba.ApiServer.Modern");
+        sqlOptions.CommandTimeout(30);
+        sqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(5), null);
+    })
+    .EnableSensitiveDataLogging(builder.Environment.IsDevelopment());
+});
+
+// Phase 3: EF Core Repositories (replace in-memory implementations)
+builder.Services.AddScoped<ITicketRepository, EfCoreTicketRepository>();
+builder.Services.AddScoped<IOrderRepository, EfCoreOrderRepository>();
+builder.Services.AddScoped<IPaymentRepository, EfCorePaymentRepository>();
+builder.Services.AddScoped<IIdempotencyService, EfCoreIdempotencyService>();
 
 // 5. CORS for web clients (Phase 1)
 builder.Services.AddCors(options =>
@@ -182,6 +198,26 @@ app.MapFallback((HttpContext ctx) =>
 });
 
 logger2.LogInformation("API routes configured (v2)");
+
+// ============================================================
+// Phase 3: Database Initialization
+// ============================================================
+
+try
+{
+    logger2.LogInformation("Applying database migrations...");
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<SambaDbContext>();
+        await dbContext.Database.MigrateAsync();
+        logger2.LogInformation("Database migrations applied successfully");
+    }
+}
+catch (Exception ex)
+{
+    logger2.LogError(ex, "Failed to apply database migrations");
+    throw;
+}
 
 // ============================================================
 // Start Application
